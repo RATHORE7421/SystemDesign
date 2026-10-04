@@ -1,0 +1,9 @@
+HLD concepts:
+1. CAP Theorem
+2. Proximity search
+3. API gateway => Authentication & Authorization, Rate limting
+4. Load balancer => routing requests, distributing traffic uniformly
+5. Notification service => FCM/APN
+6. Sharding
+7. Redis
+8. Kafka

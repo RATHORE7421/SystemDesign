@@ -1,0 +1,6 @@
+COre requireemnts:
+
+
+
+Imp points:
+- Spot allocation and ticket creation would be via same api - Transactional Atomicity 

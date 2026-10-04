@@ -1,0 +1,31 @@
+
+https://medium.com/@shivali0087/how-id-prepare-for-an-lld-interview-in-7-days-if-i-had-to-start-from-scratch-87294ee08ff5
+
+https://www.lowleveldesignmastery.com/blog/low-level-design-interview-questions/
+
+https://leetcode.com/discuss/post/5328221/frequently-asked-low-level-design-lld-qu-l0xk/
+
+https://leetcode.com/discuss/post/3113204/low-level-design-topics-by-ishan_aggarwa-z4p5/
+
+https://leetcode.com/discuss/post/6906753/amazon-hld-lld-dsa-questions-by-anonymou-sepk/
+
+https://codezym.com/blog/18-amazon-low-level-design-lld-interview-questions-2026
+
+Clarify Requirements (3-5 minutes)
+- Just look for the flow and clarify the cases that are coming in your mind and explicityl mention error hadling if anything is coming in your mind
+- Ask about scope, constraints, and edge cases. “Should the parking lot support multiple floors?” “Do we need real-time availability?” Never assume—interviewers want to see you ask smart questions.
+
+Identify Core Entities (5 minutes)
+List the nouns from requirements—these become your classes. Identify the verbs—these become your methods. Draw relationships between entities.
+
+Design Class Structure (10-15 minutes)
+Define classes, interfaces, enums. Apply SOLID principles. Choose appropriate design patterns. This is where most of your score comes from.
+
+Implement Key Methods (15-25 minutes)
+Write the core logic. Focus on the most important flows first. Don’t try to implement everything—prioritize what demonstrates your design thinking.
+
+Discuss Trade-offs (5 minutes)
+Talk about what you’d change for scale, concurrency, or different requirements. This shows senior-level thinking.
+
+
+

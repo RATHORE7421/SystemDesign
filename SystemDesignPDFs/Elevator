@@ -1,0 +1,54 @@
+{
+    req = Request(floor, type);
+    best = selectBestElevator(req);
+    best.addRequest(req);
+}
+
+private:
+    
+    Elevator selectBestElevator(Request req) {
+        floor = req.getFloor();
+        direction = req.getDirection();
+
+        best = findMovingToward(floor, direction);
+        if(best != null)    
+            return best;
+
+        best = findNearestIdle();
+        return best;
+    }
+
+    findMovingToward(floor, direction) {
+        for(e : elevators) {
+            eleDirection = e.getDirection();
+            eleFloor = else.getFloor();
+
+            if(e.isIdle()) continue;
+            if(eleDirection != direction) continue;
+            
+            distance = abs(floor - eleFoor);
+            if(distance<mn) {
+                mn = distance;
+                best = e;
+            }
+        }
+        return best; 
+
+    }
+
+
+
+
+
+    INSERT INTO fractalampostgresql.public.eventconfigs(opcocode, title, name, sources, timecolumn, measures, predicate, ignorelastprev, sqlpredicate)
+VALUES(
+  'STD', 
+  'CrystalAirtelMoney', 
+  'airtimeRechargeOthersLastDay', 
+  'SUBSCRIBER_LIFECYCLE_AIRTELMONEY_FILTERED', 
+  NULL, 
+  'resetToNull(date_format(CASE WHEN map_contains_key(recactivitymap, ''airtimeRechargeOthersUSD'') THEN CASE WHEN recactivitymap[''airtimeRechargeOthers''].lastday IS NULL THEN recactivitymap[''airtimeRechargeOthersUSD''].lastday WHEN recactivitymap[''airtimeRechargeOthersUSD''].lastday IS NOT NULL AND recactivitymap[''airtimeRechargeOthersUSD''].lastday > recactivitymap[''airtimeRechargeOthers''].lastday THEN recactivitymap[''airtimeRechargeOthersUSD''].lastday ELSE recactivitymap[''airtimeRechargeOthers''].lastday END ELSE recactivitymap[''airtimeRechargeOthers''].lastday END, ''yyyy-MM-dd''))', 
+  NULL, 
+  NULL, 
+  NULL
+);

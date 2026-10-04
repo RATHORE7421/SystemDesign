@@ -1,0 +1,3 @@
+To avoid Race conditon:
+1.Comapare and set - atomic operation 
+2. Redis distributed lock: SETNX

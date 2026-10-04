@@ -1,0 +1,247 @@
+# 🔺 CAP Theorem — System Design Concept (Interview Revision Guide)
+
+> **Appears in**: Every HLD interview when discussing database choices, replication, and trade-offs.
+
+---
+
+## 📌 What is CAP Theorem?
+
+CAP says that in a distributed system, **when a network partition happens**, you can only guarantee **two out of three**:
+
+| Property | Meaning | Simple Version |
+|----------|---------|----------------|
+| **C — Consistency** | Every read gets the **latest committed** value | "All nodes see the same data at the same time" |
+| **A — Availability** | Every request gets a **non-error response** (may be stale) | "The system always responds, even if the data might be old" |
+| **P — Partition Tolerance** | The system **keeps working** despite network failures between nodes | "Nodes can't talk to each other, but the system doesn't crash" |
+
+---
+
+## ⭐ The Correct Way to Think About It
+
+People often say: *"CAP means you choose 2 out of 3."*
+
+**That's an oversimplification.** The accurate statement is:
+
+> **When a network partition occurs, a distributed system must choose between Consistency and Availability.**
+
+Why can't you sacrifice **P**? Because networks **will** fail. Cables break. Data centers go offline. A system that can't handle partitions isn't distributed — it's a single machine.
+
+```
+Normal operation (no partition):
+    C + A + P → all three can appear achievable ✅
+
+During a network partition:
+    P is forced on you (network broke — you have no choice)
+    
+    You MUST pick:
+            P (forced)
+           / \
+          C   A
+       pick   pick
+       one    one
+```
+
+---
+
+## 🏦 The Classic Example (Bank Balance)
+
+Two database nodes replicate a user's balance:
+
+```
+         Network (healthy)
+        /                 \
+    Node A              Node B
+     ₹100                ₹100
+```
+
+User updates balance on Node A:
+
+```
+    Node A              Node B
+     ₹50                ₹100
+     (updated!)         (hasn't received update yet)
+```
+
+**Now the network between A and B breaks** (partition!):
+
+```
+    Node A     ✕     Node B
+     ₹50      💥      ₹100
+           (can't sync)
+```
+
+A user asks Node B: **"What is my balance?"**
+
+Node B has two choices:
+
+### Option 1: Choose Consistency (CP)
+
+```
+Node B: "I can't reach Node A to verify the latest value.
+         I'll REJECT your request to avoid giving wrong data."
+         
+Response: ❌ 503 Service Unavailable
+
+C ✅  (won't return stale data)
+A ❌  (user got an error)
+P ✅  (system acknowledged the partition)
+```
+
+### Option 2: Choose Availability (AP)
+
+```
+Node B: "I'll respond with what I have: ₹100"
+
+Response: ✅ "Your balance is ₹100"    (but it's actually ₹50!)
+
+A ✅  (user got a response)
+C ❌  (response was stale/wrong)
+P ✅  (system acknowledged the partition)
+```
+
+### Why can't Node B just "wait for Node A"?
+
+Because **waiting = unavailable**. If Node B says "hold on, let me check with Node A..." and the network is down for 30 minutes, the user waits 30 minutes. That's sacrificing availability.
+
+```
+Request → Node B → "Wait for Node A..." → ⏳ 30 min → Response
+
+You maintained consistency, but Node B was unavailable for 30 minutes.
+That IS choosing CP over AP.
+```
+
+---
+
+## 🗄️ Real-World Database Classification
+
+| Category | What It Chooses | Databases | Use Case |
+|----------|----------------|-----------|----------|
+| **CP** | Consistency + Partition Tolerance | MongoDB, HBase, Redis (cluster), Zookeeper | Banking, inventory, booking systems |
+| **AP** | Availability + Partition Tolerance | Cassandra, DynamoDB, CouchDB | Social media feeds, analytics, DNS |
+| **CA** | Consistency + Availability | Traditional RDBMS (PostgreSQL, MySQL single-node) | ⚠️ Only works on a single node (no partition possible) |
+
+> **CA is a trap answer!** If there's no partition (single machine), CAP doesn't apply. The moment you go distributed, P is forced, so CA doesn't exist in distributed systems.
+
+### How Each Category Behaves During a Partition
+
+```
+                    Network Partition Happens!
+                              │
+            ┌─────────────────┼─────────────────┐
+            ▼                 ▼                 ▼
+         CP System         AP System         CA System
+      (MongoDB)          (Cassandra)       (Single MySQL)
+            │                 │                 │
+    "Reject writes      "Accept writes     "Doesn't apply —
+     to minority         to any node,       there's only
+     partition.          resolve later       one node, so
+     Reads may fail."    via last-write-     no partition
+                         wins or CRDT."      is possible."
+```
+
+---
+
+## 🔄 Consistency Models (Beyond CAP)
+
+CAP's "Consistency" is **strong consistency**. But there's a spectrum:
+
+```
+Strong ◄─────────────────────────────────────────────► Eventual
+Consistency                                           Consistency
+
+"All nodes see the                              "Eventually all nodes
+ same data instantly"                            will converge to the
+                                                 same value... someday"
+
+   ┌──────┐    ┌──────────┐    ┌─────────────┐    ┌──────────┐
+   │Strong│    │Lineariz- │    │  Causal     │    │ Eventual │
+   │      │    │ability   │    │ Consistency │    │          │
+   └──────┘    └──────────┘    └─────────────┘    └──────────┘
+   Bank         Google          Social media       DNS, CDN
+   balance      Spanner         (comments)         caching
+```
+
+| Model | Meaning | Example |
+|-------|---------|---------|
+| **Strong Consistency** | After a write, ALL subsequent reads return the new value | Bank: after transfer, balance is immediately correct everywhere |
+| **Eventual Consistency** | Reads may return stale data, but will **eventually** converge | Instagram: your new post might take 2 seconds to appear for followers |
+| **Causal Consistency** | If event A caused event B, everyone sees A before B | Chat: if you reply to a message, no one sees the reply before the original |
+| **Read-your-own-writes** | The user who wrote the data always sees their own writes | Profile update: YOU see your new name immediately, others may lag |
+
+### Interview Tip: Most Systems Use Eventual Consistency
+
+> 🎤 *"In your Uber design, is the driver's location strongly consistent?"*  
+> **Answer**: No — eventual consistency is fine. If the rider sees the driver's position from 2 seconds ago, that's acceptable. Strong consistency for location would be overkill and add unnecessary latency.
+
+---
+
+## 🧭 How to Use CAP in System Design Interviews
+
+When the interviewer asks about database choice, frame it like this:
+
+### Step 1: Identify what matters more for YOUR system
+
+| System | What matters more? | Why? | Choose |
+|--------|-------------------|------|--------|
+| **Banking / Payments** | Consistency | Can't show wrong balance | **CP** |
+| **Social media feed** | Availability | Better to show a slightly old feed than error out | **AP** |
+| **Booking system** (Uber, hotels) | Consistency | Can't double-book a seat/room | **CP** |
+| **Chat messaging** | Availability | Better to deliver messages late than not at all | **AP** |
+| **Rate Limiter** | Availability | Better to allow a few extra requests than block all traffic | **AP** |
+| **Search / Analytics** | Availability | Slightly stale search results are fine | **AP** |
+| **Inventory / E-commerce** | Consistency | Can't sell item that's out of stock | **CP** |
+
+### Step 2: Say it in the interview
+
+> *"For our payment system, I'd choose a CP database like PostgreSQL with synchronous replication. During a partition, it's better to reject a transaction than to process it with stale data — we can't risk double-spending."*
+
+> *"For our social media feed, I'd choose an AP database like Cassandra. If a user sees a post 2 seconds late, that's fine. But if the feed is completely down, users leave."*
+
+---
+
+## ❓ Interview Cross-Questions & Answers
+
+> **Q: "Can a system be both consistent and available?"**  
+> A: Yes — **when there's no partition**. During normal operation, a well-designed system can provide both. CAP only forces a trade-off **during a network partition**. That's why the accurate statement is: "During a partition, choose C or A."
+
+> **Q: "Is MongoDB CP or AP?"**  
+> A: **CP by default.** Writes go to the primary node. If the primary is unreachable (partition), the cluster holds an election for a new primary. During the election (~10-30 seconds), writes are unavailable. It sacrifices availability for consistency. But you CAN configure MongoDB to read from secondaries (at the cost of consistency).
+
+> **Q: "Is Cassandra AP or CP?"**  
+> A: **AP by default.** Writes can go to any node. During a partition, both sides accept writes independently. When the partition heals, Cassandra resolves conflicts using **last-write-wins** (timestamp-based). You CAN configure Cassandra for stronger consistency using quorum reads/writes (read from majority of nodes).
+
+> **Q: "What about Google Spanner? It claims to be CA."**  
+> A: Spanner achieves **strong consistency + high availability** by using **TrueTime** (atomic clocks + GPS) to keep all nodes synchronized within ~7ms. It's technically CP — during a partition, it chooses consistency. But Google's private network makes partitions so rare that it *appears* CA in practice. It's an engineering marvel, not a CAP violation.
+
+> **Q: "How does eventual consistency resolve conflicts?"**  
+> A: Common strategies:  
+> (1) **Last-Write-Wins (LWW)** — highest timestamp wins (Cassandra uses this)  
+> (2) **Vector Clocks** — track causal ordering, detect conflicts (DynamoDB)  
+> (3) **CRDTs** — data structures that auto-merge without conflicts (used in collaborative editing)  
+> (4) **Application-level resolution** — let the app decide (shopping cart: merge both versions)
+
+> **Q: "In your design, where would you use strong vs eventual consistency?"**  
+> A: **Within the same system, different components need different models:**  
+> - Payment processing → **strong** (can't lose money)  
+> - User profile updates → **read-your-own-writes** (you see your change, others catch up)  
+> - Analytics dashboard → **eventual** (a few seconds delay is fine)  
+> - Session store → **strong** (can't have user appear logged-in on one server and logged-out on another)
+
+> **Q: "What is PACELC? How is it different from CAP?"**  
+> A: PACELC extends CAP. It says:  
+> - During a **P**artition: choose between **A**vailability and **C**onsistency (same as CAP)  
+> - **E**lse (no partition): choose between **L**atency and **C**onsistency  
+>  
+> Example: DynamoDB is **PA/EL** — during partition it chooses availability, and during normal operation it chooses low latency (eventual consistency). A traditional RDBMS is **PC/EC** — always chooses consistency, even at the cost of latency.
+
+---
+
+## ✅ Quick Revision Checklist
+
+- [x] CAP = during a partition, choose **C** or **A** (P is forced)
+- [x] CA doesn't exist in truly distributed systems
+- [x] Know the ₹100/₹50 bank balance example cold
+- [x] Know which real databases are CP vs AP
+- [x] Know the consistency spectrum: Strong → Eventual
+- [x] Frame DB choice as: "What does my system need more — consistency or availability?"
+- [x] Know PACELC as a follow-up (bonus points)
