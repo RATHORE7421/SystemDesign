@@ -1,4 +1,54 @@
-In LLD class have getters and setters, so you can mention this name
+DESIGN PATTERN → LLD/HLD MAPPING (Quick Reference)
 
-strategy:
-- Online book store 
+Strategy:
+- Parking Lot → ParkingStrategy (LowestFloorFirst, NearestToExit)
+- Rate Limiter → Algorithm selection (TokenBucket, SlidingWindow)
+- Payment → PaymentStrategy (UPI, CreditCard, Wallet)
+- Booking System → PricingStrategy (Regular, Weekend, Holiday)
+- Online Book Store
+
+Observer:
+- Booking System → ShowObserver (notify waitlisted users when seat frees up)
+- Chat Messenger → notify group members on new message
+- Uber → notify drivers when new ride request comes
+- Hospital → alert doctors when critical patient added
+
+State:
+- Elevator → IdleState, MovingUp, MovingDown, DoorOpen
+- Hospital → Patient states (Registered → InQueue → InConsultation → Discharged)
+- Uber → Ride states (Requested → DriverAssigned → InProgress → Completed)
+- Booking → Booking states (Pending → Confirmed → Cancelled)
+
+Command:
+- Text Editor → Undo/Redo (AppendTextCommand)
+- Chess → Move history, undo moves
+
+Factory:
+- Parking Lot → SpotFactory (creates CompactSpot, RegularSpot, LargeSpot)
+- Booking System → TicketService.generateTicket() (ticket creation logic)
+- Notification → NotifierFactory (creates Email/SMS/Push notifier)
+
+Singleton:
+- Parking Lot → ParkingLot (one orchestrator)
+- Cache → single shared cache
+- DB Connection → one connection pool
+- Logger → one log stream
+
+Builder:
+- Complex configs (URL Shortener config, Search queries, Notifications)
+
+Facade:
+- Hospital System → HospitalManagementSystem (hides 4 services)
+- Shopping → ShoppingFacade (hides Inventory+Payment+Shipping+Notification)
+- Booking System → BookingFacade
+
+Adapter:
+- Payment Gateway → RazorpayAdapter, StripeAdapter
+- Media Player (your existing code)
+
+KEY LEARNINGS:
+- In LLD, classes have getters and setters — mention by name
+- Strategy is the MOST asked pattern — know cold
+- Observer + Strategy combo appears in almost every LLD
+- State pattern replaces messy if-else chains for status management
+- Multiple payment options → Strategy

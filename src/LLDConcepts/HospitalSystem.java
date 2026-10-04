@@ -1,3 +1,158 @@
+// ==================================================================================
+// 🏥 Hospital Management System — Low Level Design
+// ==================================================================================
+// Target Level: SDE2 / SDE3 (Kotak Mahindra Bar Raiser)
+// Time: ~45 minutes | Patterns: Facade, Strategy (extensible) | Key: Priority Queue, SRP
+// ==================================================================================
+
+// ==================================================================================
+// 📋 PHASE 1: REQUIREMENTS GATHERING (3-5 min)
+// ==================================================================================
+//
+// Functional Requirements:
+// ┌───┬─────────────────────────────────────────────────────────────────────────────┐
+// │ # │ Requirement                                                                │
+// ├───┼─────────────────────────────────────────────────────────────────────────────┤
+// │ 1 │ Reception registers patient with priority (Critical, High, Medium, Low)    │
+// │ 2 │ Patients wait in a priority queue (Critical served first)                  │
+// │ 3 │ Initial Consultation Doctor picks next patient from queue                  │
+// │ 4 │ After consultation, patient is assigned to a Specialist Doctor             │
+// │ 5 │ System maintains treatment records (diagnosis, treatment, doctors)         │
+// │ 6 │ Same priority patients → FIFO (first registered, first served)             │
+// └───┴─────────────────────────────────────────────────────────────────────────────┘
+//
+// Non-Functional Requirements:
+// ┌───┬──────────────────────────────────────────────────────────────────────────────┐
+// │ 1 │ Thread-safe: Multiple receptionists adding, multiple doctors pulling        │
+// │ 2 │ Extensible: Easy to add new specializations, priority levels               │
+// │ 3 │ Clean separation of concerns (SRP)                                         │
+// └───┴──────────────────────────────────────────────────────────────────────────────┘
+//
+// ==================================================================================
+// 🎤 CLARIFYING QUESTIONS TO ASK THE INTERVIEWER
+// ==================================================================================
+//
+// 1. "Can a patient's priority change while waiting?"
+//    → Yes, if condition worsens. Need to support priority upgrade.
+//    → PriorityBlockingQueue doesn't support re-ordering! Need to remove & re-add.
+//
+// 2. "Can multiple receptionists register patients concurrently?"
+//    → Yes → need thread-safe queue (PriorityBlockingQueue)
+//
+// 3. "What if no consultation doctor is available?"
+//    → Patient stays in queue. Doctor picks when free.
+//
+// 4. "What if no specialist of required type is available?"
+//    → Patient waits. Could add a waiting list per specialization.
+//
+// 5. "Can a patient see multiple specialists?"
+//    → Out of scope for now. One consultation → one specialist.
+//
+// 6. "Should the system handle appointments/scheduling?"
+//    → Out of scope. Walk-in only.
+//
+// 7. "Do we need billing?"
+//    → Out of scope.
+//
+// ==================================================================================
+// ⚠️  EDGE CASES & HOW TO HANDLE
+// ==================================================================================
+//
+// ┌───┬────────────────────────────────────────────┬──────────────────────────────────┐
+// │ # │ Edge Case                                  │ How to Handle                    │
+// ├───┼────────────────────────────────────────────┼──────────────────────────────────┤
+// │ 1 │ No doctors available when patient arrives   │ Patient stays in queue until a   │
+// │   │                                            │ doctor becomes free              │
+// ├───┼────────────────────────────────────────────┼──────────────────────────────────┤
+// │ 2 │ Two CRITICAL patients at same time          │ FIFO within same priority        │
+// │   │                                            │ (compare registrationTime)       │
+// ├───┼────────────────────────────────────────────┼──────────────────────────────────┤
+// │ 3 │ Patient priority upgrade (LOW → CRITICAL)  │ Remove from queue, change        │
+// │   │                                            │ priority, re-add to queue        │
+// ├───┼────────────────────────────────────────────┼──────────────────────────────────┤
+// │ 4 │ Specialist not available for diagnosis     │ Return false, patient waits.     │
+// │   │                                            │ Could maintain per-specialization│
+// │   │                                            │ waiting list                     │
+// ├───┼────────────────────────────────────────────┼──────────────────────────────────┤
+// │ 5 │ Doctor finishes consultation but forgets    │ Need explicit release step.      │
+// │   │ to mark available                          │ Could add timeout auto-release   │
+// ├───┼────────────────────────────────────────────┼──────────────────────────────────┤
+// │ 6 │ Same patient registers twice                │ Check by name+age or a unique   │
+// │   │                                            │ identifier (Aadhaar/phone)       │
+// ├───┼────────────────────────────────────────────┼──────────────────────────────────┤
+// │ 7 │ Patient leaves without treatment           │ Add CANCELLED status, remove     │
+// │   │                                            │ from queue, log in records       │
+// └───┴────────────────────────────────────────────┴──────────────────────────────────┘
+//
+// ==================================================================================
+// 🏗️  CORE ENTITIES (nouns → classes)
+// ==================================================================================
+//
+// │ Entity              │ Type           │ Responsibility                            │
+// │─────────────────────│────────────────│───────────────────────────────────────────│
+// │ Patient             │ Class          │ Holds patient data + status               │
+// │ Doctor              │ Class          │ Holds doctor info + availability           │
+// │ TreatmentRecord     │ Class          │ Links patient ↔ doctors ↔ diagnosis       │
+// │ PatientQueue        │ Class          │ Priority queue for waiting patients        │
+// │ ReceptionService    │ Class          │ Registers patients, assigns priority       │
+// │ DoctorService       │ Class          │ Manages doctor pool, finds available docs  │
+// │ TreatmentRecordSvc  │ Class          │ Creates & queries treatment records        │
+// │ HospitalMgmtSystem  │ Class (Facade) │ Orchestrates the full patient flow         │
+//
+// ==================================================================================
+// 🎨 DESIGN PATTERNS USED
+// ==================================================================================
+//
+// │ Pattern       │ Where                    │ Why                                   │
+// │───────────────│──────────────────────────│───────────────────────────────────────│
+// │ Facade        │ HospitalManagementSystem │ Single orchestrator hiding complexity  │
+// │ SRP           │ Every service class      │ Each service does one thing            │
+// │ DIP           │ Services injected via    │ HospitalMgmtSystem doesn't create its │
+// │               │ constructor              │ own dependencies                      │
+//
+// ==================================================================================
+// ❓ INTERVIEW CROSS-QUESTIONS & ANSWERS
+// ==================================================================================
+//
+// Q: "Why PriorityBlockingQueue and not a TreeMap or sorted list?"
+// A: PBQ gives O(log N) insert + O(1) peek. It's thread-safe out of the box.
+//    TreeMap works but needs manual synchronization. Sorted list is O(N) insert.
+//
+// Q: "What if the patient's condition worsens while waiting — can you change priority?"
+// A: PBQ doesn't support re-ordering in place. You must:
+//    1. Remove the patient from the queue
+//    2. Update their priority
+//    3. Re-add them
+//    This is O(N) for removal. If frequent, consider a custom heap with a
+//    decrease-key operation, or an indexed priority queue.
+//
+// Q: "How would you handle concurrent access — 2 doctors pulling at the same time?"
+// A: PriorityBlockingQueue.poll() is atomic — only ONE doctor gets the patient.
+//    Same as AtomicBoolean.compareAndSet() in the parking lot problem.
+//    No race condition possible.
+//
+// Q: "What if you need to support VIP patients who skip the queue?"
+// A: Add a VIP priority level above CRITICAL, or use a separate VIP queue that
+//    doctors check first before the regular queue.
+//
+// Q: "How would you scale this to a hospital chain with multiple branches?"
+// A: Remove the singleton-like single hospital. Each branch gets its own
+//    HospitalManagementSystem instance. Add a HospitalRegistry to route
+//    patients to the nearest hospital with availability.
+//
+// Q: "How would you persist this data?"
+// A: In production, replace in-memory collections with a database.
+//    Patient, Doctor, TreatmentRecord → DB tables.
+//    Queue → could be Redis sorted set (score = priority + timestamp).
+//
+// Q: "Why separate ReceptionService and DoctorService? Can't Hospital do it all?"
+// A: SRP. If billing is added later, ReceptionService handles it without
+//    touching DoctorService. Each service is independently testable.
+//
+// ==================================================================================
+// 💻 COMPLETE WORKING CODE BELOW
+// ==================================================================================
+
 package src.LLDConcepts;
 
 import java.util.*;
